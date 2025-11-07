@@ -127,9 +127,18 @@ install() {
                     echo "# Added by grun setup.sh" >> "$PROFILE_FILE"
                     echo "$PATH_EXPORT" >> "$PROFILE_FILE"
                     echo -e "${GREEN}✓ Added to $PROFILE_FILE${NC}"
-                    echo -e "${YELLOW}Note: Run 'source $PROFILE_FILE' or start a new shell to use $BINARY_NAME${NC}"
+                    
+                    # Export PATH in current shell immediately
+                    echo -e "${YELLOW}Updating PATH in current shell...${NC}"
+                    export PATH="$HOME/.local/bin:$PATH"
+                    echo -e "${GREEN}✓ PATH updated in current shell${NC}"
                 else
                     echo -e "${GREEN}✓ $INSTALL_DIR already configured in $PROFILE_FILE${NC}"
+                    # Still export it in current shell if not already in PATH
+                    if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
+                        export PATH="$HOME/.local/bin:$PATH"
+                        echo -e "${GREEN}✓ PATH updated in current shell${NC}"
+                    fi
                 fi
             else
                 echo -e "${YELLOW}⚠ $INSTALL_DIR is not in your PATH${NC}"
