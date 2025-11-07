@@ -32,7 +32,7 @@ command_exists() {
 
 # Check if binary is already installed
 is_installed() {
-    [ -f "$INSTALL_PATH" ] && command_exists "$BINARY_NAME"
+    [ -f "$INSTALL_PATH" ]
 }
 
 # Print usage
@@ -86,25 +86,69 @@ install() {
     rm -f "$BINARY_NAME"
     
     # Verify installation
-    if is_installed; then
+    if [ -f "$INSTALL_PATH" ]; then
         echo -e "${GREEN}✓ Successfully installed $BINARY_NAME${NC}"
         echo ""
         echo -e "${BLUE}Installation location: $INSTALL_PATH${NC}"
         
-        # Check if it's in PATH
+        # Check if it's in PATH and add if needed
         if echo "$PATH" | grep -q "$INSTALL_DIR"; then
-            echo -e "${GREEN}✓ $INSTALL_DIR is in your PATH${NC}"
+            echo -e "${GREEN}✓ $INSTALL_DIR is already in your PATH${NC}"
         else
-            echo -e "${YELLOW}⚠ Warning: $INSTALL_DIR is not in your PATH${NC}"
-            echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-            echo -e "${BLUE}  export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+            # Detect shell and profile file
+            SHELL_NAME=$(basename "$SHELL" 2>/dev/null || echo "bash")
+            PROFILE_FILE=""
+            
+            case "$SHELL_NAME" in
+                zsh)
+                    PROFILE_FILE="$HOME/.zshrc"
+                    ;;
+                bash)
+                    PROFILE_FILE="$HOME/.bashrc"
+                    ;;
+                *)
+                    # Try common profile files
+                    if [ -f "$HOME/.zshrc" ]; then
+                        PROFILE_FILE="$HOME/.zshrc"
+                    elif [ -f "$HOME/.bashrc" ]; then
+                        PROFILE_FILE="$HOME/.bashrc"
+                    elif [ -f "$HOME/.profile" ]; then
+                        PROFILE_FILE="$HOME/.profile"
+                    fi
+                    ;;
+            esac
+            
+            if [ -n "$PROFILE_FILE" ] && [ -w "$PROFILE_FILE" ]; then
+                # Check if PATH export already exists
+                PATH_EXPORT="export PATH=\"\$HOME/.local/bin:\$PATH\""
+                if ! grep -qF ".local/bin" "$PROFILE_FILE" 2>/dev/null; then
+                    echo -e "${YELLOW}Adding $INSTALL_DIR to PATH in $PROFILE_FILE...${NC}"
+                    echo "" >> "$PROFILE_FILE"
+                    echo "# Added by grun setup.sh" >> "$PROFILE_FILE"
+                    echo "$PATH_EXPORT" >> "$PROFILE_FILE"
+                    echo -e "${GREEN}✓ Added to $PROFILE_FILE${NC}"
+                    echo -e "${YELLOW}Note: Run 'source $PROFILE_FILE' or start a new shell to use $BINARY_NAME${NC}"
+                else
+                    echo -e "${GREEN}✓ $INSTALL_DIR already configured in $PROFILE_FILE${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠ $INSTALL_DIR is not in your PATH${NC}"
+                echo "Please add this to your shell profile:"
+                echo -e "${BLUE}  export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+            fi
         fi
         
         echo ""
         echo -e "${GREEN}You can now use '$BINARY_NAME' from anywhere!${NC}"
-        echo -e "${BLUE}Try running: $BINARY_NAME${NC}"
+        if echo "$PATH" | grep -q "$INSTALL_DIR"; then
+            echo -e "${BLUE}Try running: $BINARY_NAME${NC}"
+        else
+            echo -e "${BLUE}Try running: source ~/.${SHELL_NAME}rc && $BINARY_NAME${NC}"
+            echo -e "${BLUE}Or in a new shell: $BINARY_NAME${NC}"
+        fi
     else
         echo -e "${RED}Error: Installation verification failed${NC}"
+        echo -e "${RED}Binary not found at: $INSTALL_PATH${NC}"
         exit 1
     fi
 }
