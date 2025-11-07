@@ -83,37 +83,21 @@ The cache directory is determined in the following order:
 
 ## Example
 
-Create a simple Go script:
-
-```go
-// script.go
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Hello, world!")
-}
-```
-
-Run it:
+The repository includes an example script in `examples/script.go`. Run it:
 
 ```bash
-$ grun script.go
-Compiling script.go...
+$ grun examples/script.go
 Hello, world!
 
-$ grun script.go
-Using cached binary: /home/user/.cache/grun/script-49da602ba3c7fbb1
+$ grun examples/script.go
 Hello, world!
 ```
 
-Modify the script and run again - it will automatically recompile:
+The second run uses the cached binary. Modify the script and run again - it will automatically recompile:
 
 ```bash
-$ # Edit script.go to print "Hello, updated!"
-$ grun script.go
-Compiling script.go...
+$ # Edit examples/script.go to print "Hello, updated!"
+$ grun examples/script.go
 Hello, updated!
 ```
 
@@ -132,7 +116,7 @@ go test ./...
 go build -o grun ./main.go
 
 # Test with example script
-./grun script.go
+./grun examples/script.go
 
 # Install as system tool
 ./setup.sh install
