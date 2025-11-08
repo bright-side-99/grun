@@ -6,6 +6,11 @@ A fast Go script runner with intelligent caching. Compiles Go files only when th
 
 - **Smart caching**: Only recompiles when the source file changes
 - **Fast execution**: Uses cached binaries for instant runs
+- **Shebang support**: Make Go scripts directly executable like shell scripts
+- **Dependency support**: Automatically handles scripts with external dependencies via `go.mod`
+- **Hybrid approach**: Works with both simple single-file scripts and complex modules
+- **Intelligent recompilation**: Tracks changes to source files, `go.mod`, and `go.sum`
+- **Clean temp handling**: Temporary files are managed in system temp directory, never polluting your workspace
 - **Configurable cache directory**: Default `~/.cache/grun`, override via flag or env var
 - **Easy installation**: Install as a system tool with one command
 
@@ -53,6 +58,84 @@ Pass arguments to your script:
 grun script.go arg1 arg2 arg3
 ```
 
+### Making scripts executable (shebang)
+
+Make your Go scripts directly executable like shell scripts:
+
+```bash
+# Add shebang to your script
+cat > hello.go << 'EOF'
+#!/usr/bin/env grun
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello from executable Go script!")
+}
+EOF
+
+# Make it executable
+chmod +x hello.go
+
+# Run it directly!
+./hello.go
+```
+
+**How it works:**
+- The shebang `#!/usr/bin/env grun` tells the OS to run the script with `grun`
+- `grun` automatically strips the shebang before compilation
+- Temporary files are created in `/tmp`, keeping your workspace clean
+- Caching works normally - scripts execute instantly after first compilation
+
+**Works with dependencies too:**
+```bash
+#!/usr/bin/env grun
+package main
+
+import "github.com/fatih/color"
+
+func main() {
+    color.Green("Executable with dependencies!")
+}
+```
+
+Just ensure your script directory has a `go.mod` file!
+
+### Using external dependencies
+
+For scripts that need external packages, initialize a Go module in the script's directory:
+
+```bash
+# Create your script
+mkdir my-script && cd my-script
+cat > script.go << 'EOF'
+package main
+
+import (
+    "fmt"
+    "github.com/fatih/color"
+)
+
+func main() {
+    color.Green("Hello with dependencies!")
+}
+EOF
+
+# Initialize module and add dependencies
+go mod init my-script
+go get github.com/fatih/color
+
+# Run with grun
+grun script.go
+```
+
+Once set up, `grun` will automatically:
+- Detect the `go.mod` file
+- Build the package with all dependencies
+- Recompile when `go.mod` or `go.sum` changes
+- Cache the binary for fast subsequent runs
+
 ### Override cache directory
 
 **Using command-line flag:**
@@ -68,11 +151,23 @@ GRUN_CACHE=/tmp/my-cache grun script.go
 ## How it works
 
 1. **First run**: `grun` compiles your Go file and stores the binary in the cache directory
-2. **Subsequent runs**: `grun` checks if the source file has been modified
+2. **Subsequent runs**: `grun` checks if the source file, `go.mod`, or `go.sum` has been modified
    - If unchanged: Uses the cached binary (instant execution)
    - If changed: Recompiles and updates the cache
 
 The cache key is based on the absolute path of the source file, so different files get different cached binaries.
+
+### Dependency Handling
+
+`grun` intelligently detects how to build your script:
+
+- **With `go.mod`**: If a `go.mod` file exists in the script's directory, `grun` builds the entire package (with all dependencies)
+- **Without `go.mod`**: Builds as a single file (standard library only)
+- **Build failure hint**: If building fails without `go.mod`, you'll get helpful suggestions to initialize a module
+
+This hybrid approach means you can use `grun` for:
+- Quick throwaway scripts (no setup needed)
+- Production-quality scripts with external dependencies (just add `go.mod`)
 
 ## Cache Directory Priority
 
@@ -81,25 +176,66 @@ The cache directory is determined in the following order:
 2. `GRUN_CACHE` environment variable
 3. Default: `~/.cache/grun`
 
-## Example
+## Examples
 
-The repository includes an example script in `examples/script.go`. Run it:
+The repository includes several example scripts demonstrating different use cases:
 
-```bash
-$ grun examples/script.go
-Hello, world!
+### Simple Script (No Dependencies)
 
-$ grun examples/script.go
-Hello, world!
-```
-
-The second run uses the cached binary. Modify the script and run again - it will automatically recompile:
+Located in `examples/scripts/` - demonstrates a simple script using only the standard library:
 
 ```bash
-$ # Edit examples/script.go to print "Hello, updated!"
-$ grun examples/script.go
-Hello, updated!
+$ grun examples/scripts/script.go
+=== Simple grun Example ===
+
+This is a simple Go script with no external dependencies.
+It uses only the standard library and runs instantly with grun!
+
+Try running: grun script.go arg1 arg2
 ```
+
+### Executable Script with Shebang
+
+Located in `examples/scripts/hello-executable.go` - demonstrates a directly executable script:
+
+```bash
+$ chmod +x examples/scripts/hello-executable.go
+$ ./examples/scripts/hello-executable.go
+🚀 Executable Go Script!
+
+This script can be run directly: ./hello-executable.go
+No need to type 'grun' - the shebang does it for you!
+```
+
+### Script with External Dependencies
+
+Located in `examples/with-deps/` - demonstrates using external packages:
+
+```bash
+$ grun examples/with-deps/script.go
+=== grun Example with Dependencies ===
+
+✓ Successfully imported and used github.com/fatih/color
+✓ This script requires go.mod to work
+✓ grun automatically detects go.mod and builds accordingly
+```
+
+### Executable Script with Dependencies
+
+Located in `examples/with-deps/color-demo.go` - combines shebang with external packages:
+
+```bash
+$ ./examples/with-deps/color-demo.go
+╔═══════════════════════════════════════╗
+║  Executable Go Script with Dependencies  ║
+╚═══════════════════════════════════════╝
+
+✓ Shebang: #!/usr/bin/env grun
+✓ External dependencies via go.mod
+✓ Run directly: ./color-demo.go
+```
+
+All examples cache their binaries and only recompile when files change.
 
 ## Testing
 
@@ -115,8 +251,16 @@ go test ./...
 # Build grun
 go build -o grun ./main.go
 
-# Test with example script
-./grun examples/script.go
+# Test with simple example
+./grun examples/scripts/script.go
+
+# Test with dependencies example
+./grun examples/with-deps/script.go
+
+# Test executable scripts (with shebang)
+chmod +x examples/scripts/hello-executable.go examples/with-deps/color-demo.go
+./examples/scripts/hello-executable.go
+./examples/with-deps/color-demo.go
 
 # Install as system tool
 ./setup.sh install
