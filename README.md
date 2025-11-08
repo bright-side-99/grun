@@ -181,11 +181,11 @@ The cache directory is determined in the following order:
 
 ## Examples
 
-The repository includes several example scripts demonstrating different use cases:
+The repository includes two example scripts demonstrating different use cases:
 
 ### Simple Script (No Dependencies)
 
-Located in `examples/scripts/` - demonstrates a simple script using only the standard library:
+Located in `examples/scripts/script.go` - demonstrates a simple script with shebang using only the standard library:
 
 ```bash
 $ ./examples/scripts/script.go
@@ -199,22 +199,9 @@ Arguments received: test, args
 
 Or use `grun` explicitly: `grun examples/scripts/script.go`
 
-### Executable Script with Shebang
-
-Located in `examples/scripts/hello-executable.go` - demonstrates a directly executable script:
-
-```bash
-$ chmod +x examples/scripts/hello-executable.go
-$ ./examples/scripts/hello-executable.go
-🚀 Executable Go Script!
-
-This script can be run directly: ./hello-executable.go
-No need to type 'grun' - the shebang does it for you!
-```
-
 ### Script with External Dependencies
 
-Located in `examples/with-deps/` - demonstrates using external packages:
+Located in `examples/with-deps/script.go` - demonstrates using external packages with shebang:
 
 ```bash
 $ ./examples/with-deps/script.go
@@ -227,22 +214,7 @@ $ ./examples/with-deps/script.go
 
 Or use `grun` explicitly: `grun examples/with-deps/script.go`
 
-### Executable Script with Dependencies
-
-Located in `examples/with-deps/color-demo.go` - combines shebang with external packages:
-
-```bash
-$ ./examples/with-deps/color-demo.go
-╔═══════════════════════════════════════╗
-║  Executable Go Script with Dependencies  ║
-╚═══════════════════════════════════════╝
-
-✓ Shebang: #!/usr/bin/env grun
-✓ External dependencies via go.mod
-✓ Run directly: ./color-demo.go
-```
-
-All examples cache their binaries and only recompile when files change.
+Both examples have shebangs (`#!/usr/bin/env grun`) and can be run directly. They cache their binaries and only recompile when files change.
 
 ## Testing
 
@@ -260,14 +232,13 @@ go build -o grun ./main.go
 
 # Test with simple example
 ./grun examples/scripts/script.go
+# Or run directly (has shebang)
+./examples/scripts/script.go
 
 # Test with dependencies example
 ./grun examples/with-deps/script.go
-
-# Test executable scripts (with shebang)
-chmod +x examples/scripts/hello-executable.go examples/with-deps/color-demo.go
-./examples/scripts/hello-executable.go
-./examples/with-deps/color-demo.go
+# Or run directly (has shebang)
+./examples/with-deps/script.go
 
 # Install as system tool
 ./setup.sh install

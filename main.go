@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,16 +45,6 @@ func ensureCacheDir() error {
 	return os.MkdirAll(cachePath, 0755)
 }
 
-// getFileHash computes a hash of the file content
-func getFileHash(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:]), nil
-}
-
 // getCachedBinaryPath returns the path where the cached binary should be stored
 func getCachedBinaryPath(sourceFile string) (string, error) {
 	absPath, err := filepath.Abs(sourceFile)
@@ -80,13 +69,11 @@ func getCachedBinaryPath(sourceFile string) (string, error) {
 // needsRecompile checks if the source file needs to be recompiled
 // It considers the source file, go.mod, and go.sum timestamps
 func needsRecompile(sourceFile, cachedBinary string) (bool, error) {
-	// If cached binary doesn't exist, we need to compile
-	if _, err := os.Stat(cachedBinary); os.IsNotExist(err) {
-		return true, nil
-	}
-
 	// Get cached binary modification time
 	cachedInfo, err := os.Stat(cachedBinary)
+	if os.IsNotExist(err) {
+		return true, nil
+	}
 	if err != nil {
 		return true, err
 	}
@@ -132,25 +119,14 @@ func needsRecompile(sourceFile, cachedBinary string) (bool, error) {
 
 // hasShebang checks if a file starts with a shebang line
 func hasShebang(filePath string) (bool, error) {
-	file, err := os.Open(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
-
-	// Read first two bytes
-	header := make([]byte, 2)
-	_, err = file.Read(header)
-	if err != nil {
-		// EOF means file is shorter than 2 bytes (no shebang possible)
-		// Other errors should be propagated
-		if err == io.EOF {
-			return false, nil
-		}
-		return false, err
+	if len(data) < 2 {
+		return false, nil
 	}
-
-	return header[0] == '#' && header[1] == '!', nil
+	return data[0] == '#' && data[1] == '!', nil
 }
 
 // createTempFileWithoutShebang creates a temporary copy of the source file without the shebang line
@@ -162,34 +138,25 @@ func createTempFileWithoutShebang(sourceFile string) (string, func(), error) {
 	}
 
 	// Find the first newline and skip the shebang line
-	lines := string(data)
-	if idx := strings.Index(lines, "\n"); idx != -1 {
-		lines = lines[idx+1:]
+	if idx := strings.Index(string(data), "\n"); idx != -1 {
+		data = data[idx+1:]
 	}
 
 	// Create temporary file in system temp directory to avoid polluting script directory
-	// Use the original filename to make error messages clearer
 	baseName := filepath.Base(sourceFile)
 	tmpFile, err := os.CreateTemp("", "grun_"+baseName+"_*.go")
 	if err != nil {
 		return "", nil, err
 	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close() // Close before writing
 
-	if _, err := tmpFile.WriteString(lines); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		os.Remove(tmpPath)
 		return "", nil, err
 	}
 
-	tmpFile.Close()
-	tmpPath := tmpFile.Name()
-
-	// Return cleanup function
-	cleanup := func() {
-		os.Remove(tmpPath)
-	}
-
-	return tmpPath, cleanup, nil
+	return tmpPath, func() { os.Remove(tmpPath) }, nil
 }
 
 // compileGoFile compiles a Go file to the specified output path
@@ -211,42 +178,32 @@ func compileGoFile(sourceFile, outputPath string) error {
 	}
 
 	var fileToCompile string
-	var cleanup func()
 
 	if hasShebangLine {
 		// Create temporary file without shebang in system temp directory
-		tmpFile, cleanupFunc, err := createTempFileWithoutShebang(absSourceFile)
+		tmpFile, cleanup, err := createTempFileWithoutShebang(absSourceFile)
 		if err != nil {
 			return fmt.Errorf("failed to create temporary file: %w", err)
 		}
 		fileToCompile = tmpFile
-		cleanup = cleanupFunc
-		// Ensure cleanup happens even if compilation fails
-		defer cleanup()
+		defer cleanup() // Ensure cleanup happens even if compilation fails
 	} else {
 		fileToCompile = absSourceFile
-		cleanup = nil
 	}
 
 	var cmd *exec.Cmd
-	hasGoMod := false
+	_, hasGoMod := os.Stat(goModPath)
 
-	// Check if go.mod exists in the source directory
-	if _, err := os.Stat(goModPath); err == nil {
-		hasGoMod = true
-
-		// For module-based builds with shebang, we build the specific file
-		// The temp file is in a different directory, so we provide its absolute path
+	if hasGoMod == nil {
+		// go.mod exists - build the package
 		if hasShebangLine {
 			cmd = exec.Command("go", "build", "-o", outputPath, fileToCompile)
-			cmd.Dir = sourceDir
 		} else {
-			// No shebang - build the package normally
 			cmd = exec.Command("go", "build", "-o", outputPath)
-			cmd.Dir = sourceDir
 		}
+		cmd.Dir = sourceDir
 	} else {
-		// No go.mod - build single file (original behavior)
+		// No go.mod - build single file
 		cmd = exec.Command("go", "build", "-o", outputPath, fileToCompile)
 	}
 
@@ -254,8 +211,8 @@ func compileGoFile(sourceFile, outputPath string) error {
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Run()
-	if err != nil && !hasGoMod {
-		// If build failed without go.mod, provide helpful hint
+	if err != nil && hasGoMod != nil {
+		// Build failed without go.mod - provide helpful hint
 		return fmt.Errorf("build failed: %w\n\nHint: If your script uses external dependencies, initialize a Go module:\n  cd %s\n  go mod init <module-name>\n  go get <dependencies>", err, sourceDir)
 	}
 
