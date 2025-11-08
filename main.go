@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,7 +142,12 @@ func hasShebang(filePath string) (bool, error) {
 	header := make([]byte, 2)
 	_, err = file.Read(header)
 	if err != nil {
-		return false, nil
+		// EOF means file is shorter than 2 bytes (no shebang possible)
+		// Other errors should be propagated
+		if err == io.EOF {
+			return false, nil
+		}
+		return false, err
 	}
 
 	return header[0] == '#' && header[1] == '!', nil
