@@ -4,27 +4,25 @@ This directory demonstrates using `grun` with simple Go scripts that only use th
 
 ## What's Here
 
-- `script.go` - A simple Go script (call with `grun script.go`)
-- `hello-executable.go` - An executable script with shebang (call with `./hello-executable.go`)
+- `script.go` - A simple Go script with shebang (call with `./script.go` or `grun script.go`)
+- `hello-executable.go` - An executable script with shebang (call with `./hello-executable.go` or `grun hello-executable.go`)
 
 ## How to Run
 
-**Traditional approach:**
+**Run directly (recommended):**
+```bash
+# All scripts have shebangs and are executable
+./script.go arg1 arg2
+./hello-executable.go arg1 arg2
+```
+
+**Or use grun explicitly:**
 ```bash
 # From the grun root directory
 grun examples/scripts/script.go
 
 # Or from this directory
 grun script.go arg1 arg2
-```
-
-**Executable with shebang:**
-```bash
-# Make it executable (already done in repo)
-chmod +x hello-executable.go
-
-# Run directly!
-./hello-executable.go arg1 arg2
 ```
 
 ## What This Demonstrates

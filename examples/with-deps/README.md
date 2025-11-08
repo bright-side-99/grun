@@ -4,29 +4,27 @@ This directory demonstrates using `grun` with Go scripts that require external d
 
 ## What's Here
 
-- `script.go` - A Go script using `github.com/fatih/color` (call with `grun script.go`)
-- `color-demo.go` - An executable script with shebang and dependencies (call with `./color-demo.go`)
+- `script.go` - A Go script with shebang using `github.com/fatih/color` (call with `./script.go` or `grun script.go`)
+- `color-demo.go` - An executable script with shebang and dependencies (call with `./color-demo.go` or `grun color-demo.go`)
 - `go.mod` - Module file defining dependencies
 - `go.sum` - Checksums for dependencies
 
 ## How to Run
 
-**Traditional approach:**
+**Run directly (recommended):**
+```bash
+# All scripts have shebangs and are executable
+./script.go arg1 arg2
+./color-demo.go arg1 arg2
+```
+
+**Or use grun explicitly:**
 ```bash
 # From the grun root directory
 grun examples/with-deps/script.go
 
 # Or from this directory
 grun script.go arg1 arg2
-```
-
-**Executable with shebang:**
-```bash
-# Make it executable (already done in repo)
-chmod +x color-demo.go
-
-# Run directly!
-./color-demo.go arg1 arg2
 ```
 
 ## What This Demonstrates

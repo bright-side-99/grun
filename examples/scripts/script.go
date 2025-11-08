@@ -1,3 +1,4 @@
+#!/usr/bin/env grun
 package main
 
 import (

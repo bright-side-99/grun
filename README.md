@@ -84,9 +84,12 @@ chmod +x hello.go
 
 **How it works:**
 - The shebang `#!/usr/bin/env grun` tells the OS to run the script with `grun`
+- Make the script executable: `chmod +x hello.go`
 - `grun` automatically strips the shebang before compilation
 - Temporary files are created in `/tmp`, keeping your workspace clean
 - Caching works normally - scripts execute instantly after first compilation
+
+**Note:** Don't forget to make your script executable with `chmod +x`! Without execute permissions, you'll get a "permission denied" error.
 
 **Works with dependencies too:**
 ```bash
@@ -185,14 +188,16 @@ The repository includes several example scripts demonstrating different use case
 Located in `examples/scripts/` - demonstrates a simple script using only the standard library:
 
 ```bash
-$ grun examples/scripts/script.go
+$ ./examples/scripts/script.go
 === Simple grun Example ===
 
 This is a simple Go script with no external dependencies.
 It uses only the standard library and runs instantly with grun!
 
-Try running: grun script.go arg1 arg2
+Arguments received: test, args
 ```
+
+Or use `grun` explicitly: `grun examples/scripts/script.go`
 
 ### Executable Script with Shebang
 
@@ -212,13 +217,15 @@ No need to type 'grun' - the shebang does it for you!
 Located in `examples/with-deps/` - demonstrates using external packages:
 
 ```bash
-$ grun examples/with-deps/script.go
+$ ./examples/with-deps/script.go
 === grun Example with Dependencies ===
 
 ✓ Successfully imported and used github.com/fatih/color
 ✓ This script requires go.mod to work
 ✓ grun automatically detects go.mod and builds accordingly
 ```
+
+Or use `grun` explicitly: `grun examples/with-deps/script.go`
 
 ### Executable Script with Dependencies
 
